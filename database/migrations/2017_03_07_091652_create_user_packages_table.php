@@ -17,7 +17,7 @@ class CreateUserPackagesTable extends Migration
             $table->increments('id');
             $table->integer('user_id')->unsigned();
             $table->integer('package_id')->unsigned();
-            $table->enum('is_expired', ['true', 'fals'])->default('false');
+            $table->enum('is_expired', ['true', 'false'])->default('false');
             $table->timestamps();
         });
     }

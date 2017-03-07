@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers\Auth;
 
-use App\User;
+use App\Models\User;
 use Validator;
+use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Foundation\Auth\RegistersUsers;
+use App\Traits\ActivationKeyTrait;
+
 
 class RegisterController extends Controller
 {
@@ -20,7 +23,7 @@ class RegisterController extends Controller
     |
     */
 
-    use RegistersUsers;
+    use RegistersUsers, ActivationKeyTrait;
 
     /**
      * Where to redirect users after login / registration.
@@ -47,11 +50,27 @@ class RegisterController extends Controller
      */
     protected function validator(array $data)
     {
-        return Validator::make($data, [
-            'name' => 'required|max:255',
-            'email' => 'required|email|max:255|unique:users',
-            'password' => 'required|min:6|confirmed',
-        ]);
+  
+        $validator = Validator::make($data,
+            [
+                'username'               => 'required|unique:users|min:5',
+                'email'                 => 'required|email|unique:users',
+                'password'              => 'required|min:6|max:20',
+                'password_confirmation' => 'required|same:password',
+            ],
+            [
+                'username.required'     => 'Username is required',
+                'username.min'           => 'Username needs to have at least 6 characters',
+                'email.required'        => 'Email is required',
+                'email.email'           => 'Email is invalid',
+                'password.required'     => 'Password is required',
+                'password.min'          => 'Password needs to have at least 6 characters',
+                'password.max'          => 'Password maximum length is 20 characters',
+            ]
+        );
+ 
+        return $validator;
+   
     }
 
     /**
@@ -63,9 +82,32 @@ class RegisterController extends Controller
     protected function create(array $data)
     {
         return User::create([
-            'name' => $data['name'],
+            'username' => $data['username'],
             'email' => $data['email'],
             'password' => bcrypt($data['password']),
+            'activated' => false
         ]);
+    }
+    
+    public function register(Request $request)
+    {
+        $validator = $this->validator($request->all());
+ 
+        if ($validator->fails()) {
+            $this->throwValidationException(
+                $request, $validator
+            );
+        }
+     
+        // create the user
+        $user = $this->create($request->all());
+ 
+        // process the activation email for the user
+        $this->queueActivationKeyNotification($user);
+ 
+        // we do not want to login the new user
+        return redirect('/login')
+            ->with('message', 'We sent you an activation code. Please check your email.')
+            ->with('status', 'success');
     }
 }
